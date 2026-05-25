@@ -1,0 +1,81 @@
+services:
+  nginx:
+    image: nginx:stable-alpine
+    container_name: strata-nginx
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+    depends_on:
+      - web
+      - api
+
+    networks:
+      - strata-net
+
+
+  web:
+    image: ghcr.io/gerardoprogramer/strata-web:latest
+    container_name: strata-web
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+
+    depends_on:
+      - api
+
+    networks:
+      - strata-net
+
+
+  api:
+    image: ghcr.io/gerardoprogramer/strata-api:latest
+    container_name: strata-api
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - strata-net
+
+
+  db:
+    image: postgres:16-alpine
+    container_name: strata-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+
+    volumes:
+      - strata_pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - strata-net
+
+
+volumes:
+  strata_pgdata:
+
+
+networks:
+  strata-net:
+    driver: bridge
