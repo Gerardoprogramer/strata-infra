@@ -1,0 +1,45 @@
+services:
+  api:
+    build:
+      context: ../strata-api
+      dockerfile: Dockerfile.dev
+    container_name: strata-api-dev
+    env_file:
+      - ../strata-api/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ../strata-api:/app
+      - /app/.venv/
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - strata-net
+
+  db:
+    image: postgres:16-alpine
+    container_name: strata-db-dev
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - strata_pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - strata-net
+
+volumes:
+  strata_pgdata_dev:
+
+networks:
+  strata-net:
+    driver: bridge
